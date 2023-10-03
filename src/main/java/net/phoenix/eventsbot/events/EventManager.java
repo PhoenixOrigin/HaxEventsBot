@@ -7,18 +7,17 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
-import java.awt.*;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class EventManager {
-    private List<Event> events;
     private final String jsonFilePath;
     public Message embed;
+    public Map<Integer, Event> list = new HashMap<>();
+    public int id = 0;
+    private List<Event> events;
 
     public EventManager(TextChannel textChannel, String jsonFilePath) {
         this.jsonFilePath = jsonFilePath;
@@ -64,14 +63,23 @@ public class EventManager {
     public List<Event> loadEventsFromFile() {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            return objectMapper.readValue(new File(jsonFilePath), new TypeReference<List<Event>>() {});
+            return objectMapper.readValue(new File(jsonFilePath), new TypeReference<List<Event>>() {
+            });
         } catch (IOException e) {
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
 
-    private List<MessageEmbed> generateEmbeds(){
+    public MessageEmbed generateSuggestionEmbed(Event event) {
+        EmbedBuilder builder = new EmbedBuilder();
+        String description = String.format("Leader: <@!%s>\nTime: <t:%d:R>\nDescription: %s\nMember cap: %d", event.getLeader(), event.getTimestamp(), event.getEventDescription(), event.member_cap);
+        builder.setDescription(description);
+        builder.setTitle("Event suggestion by <@!" + event.getLeader() + ">");
+        return builder.build();
+    }
+
+    private List<MessageEmbed> generateEmbeds() {
         List<MessageEmbed> embeds = new ArrayList<>();
 
         EmbedBuilder builder = new EmbedBuilder();
@@ -79,7 +87,7 @@ public class EventManager {
         builder.setDescription("List of running events");
 
         for (Event e : this.events) {
-            if(!e.running) {
+            if (!e.running) {
                 continue;
             }
             String description = String.format("Leader: <@!%s>\n\nDescription: %s\n **This Event is Running!**", e.getLeader(), e.getEventDescription());
@@ -95,8 +103,8 @@ public class EventManager {
         this.events = events.stream().sorted(Comparator.comparingLong(Event::getTimestamp)).collect(Collectors.toList());
 
         for (Event e : this.events) {
-            String description = String.format("Leader: <@!%s>\nTime: <t:%d:R>\nDescription: %s", e.getLeader(), e.getTimestamp(), e.getEventDescription());
-            if(e.running) {
+            String description = String.format("Leader: <@!%s>\nTime: <t:%s:R>\nDescription: %s\nAttendees: %d/%d", e.getLeader(), e.getTimestamp(), e.getEventDescription(), e.attendees.size(), e.member_cap);
+            if (e.running) {
                 continue;
             }
             builder.addField(new MessageEmbed.Field(e.getEventName(), description, false));
