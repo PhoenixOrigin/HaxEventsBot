@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
         private final Long planner;
         private final String event_name;
         private final String event_description;
+        public boolean running = false;
 
         public Event(Long timestamp, int member_cap, Long planner, String event_name, String event_description) {
             this.timestamp = timestamp;
@@ -44,20 +45,27 @@ import java.util.concurrent.TimeUnit;
         }
 
         public void registerAttendee(Member member) {
-            if (attendees.size() == member_cap) return;
-            attendees.add(member.getIdLong());
+            if (attendees.size() != member_cap) attendees.add(member.getIdLong());
         }
 
         public void queue() {
-            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            try (ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1)) {
 
-            long currentTime = System.currentTimeMillis();
-            long timeUntilEventStart = timestamp - currentTime;
-            long reminderTime = timeUntilEventStart - (30 * 60 * 1000);
+                long currentTime = System.currentTimeMillis();
+                long timeUntilEventStart = timestamp - currentTime;
+                long reminderTime = timeUntilEventStart - (30 * 60 * 1000);
 
 
-            ScheduledFuture<?> reminderFuture = scheduler.schedule(() -> {
-                Main.jda.retrieveUserById(planner).queue(member -> member.openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage("Your event \"" + event_name + "\" is scheduled to start in 30 minutes! Please message us ASAP if you are unable to host your event.").queue()));
+                ScheduledFuture<?> reminderFuture = scheduler.schedule(() -> {
+                    Main.jda.retrieveUserById(planner).queue(member -> {
+                        member.openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage("Your event \"" + event_name + "\" is scheduled to start in 30 minutes! Please message us ASAP if you are unable to host your event.").queue());
+                    });
+                    }, reminderTime, TimeUnit.MILLISECONDS);
+                ScheduledFuture<?> eventStartFuture = scheduler.schedule(() -> {
+                    Main.jda.retrieveUserById(planner).queue(member -> member.openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage("Your event \"" + event_name + "\" is scheduled to start in 30 minutes! Please message us ASAP if you are unable to host your event.").queue()));
+                    running = true;
+
                 }, reminderTime, TimeUnit.MILLISECONDS);
+            }
         }
     }

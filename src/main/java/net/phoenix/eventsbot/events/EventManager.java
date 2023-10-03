@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class EventManager {
-    private final List<Event> events;
+    private List<Event> events;
     private final String jsonFilePath;
     public Message embed;
 
@@ -31,11 +31,10 @@ public class EventManager {
         this.events = eventsList.stream().sorted(Comparator.comparingLong(Event::getTimestamp)).collect(Collectors.toList());
 
         for (Event e : this.events) {
-            String description = String.format("Leader: <@!%s>\nTime: <t:%d:R>\nDescription: %s");
-            MessageEmbed.Field field = new MessageEmbed.Field(e.getEventName(), , false);
+            String description = String.format("Leader: <@!%s>\nTime: <t:%d:R>\nDescription: %s", e.getLeader(), e.getTimestamp(), e.getEventDescription());
+            builder.addField(new MessageEmbed.Field(e.getEventName(), description, false));
         }
         textChannel.sendMessageEmbeds(builder.build()).queue(embed -> this.embed = embed);
-
     }
 
     public List<Event> getEvents() {
@@ -45,6 +44,7 @@ public class EventManager {
     public void addEvent(Event event) {
         events.add(event);
         saveEventsToFile();
+        updateEventEmbed();
     }
 
     public void removeEvent(Event event) {
@@ -71,12 +71,43 @@ public class EventManager {
         }
     }
 
-    private void updateEventEmbed(Event event) {
-        EmbedBuilder embedBuilder = new EmbedBuilder();
-        embedBuilder.setTitle("Event Information");
-        embedBuilder.setColor(Color.BLUE);
-        embedBuilder.addField("Event Name", event.getEventName(), false);
-        embedBuilder.addField("Event Description", event.getEventDescription(), false);
-        embedBuilder.addField("Status", "Started", false);
+    private List<MessageEmbed> generateEmbeds(){
+        List<MessageEmbed> embeds = new ArrayList<>();
+
+        EmbedBuilder builder = new EmbedBuilder();
+        builder.setTitle("HackForums Events");
+        builder.setDescription("List of running events");
+
+        for (Event e : this.events) {
+            if(!e.running) {
+                continue;
+            }
+            String description = String.format("Leader: <@!%s>\n\nDescription: %s\n **This Event is Running!**", e.getLeader(), e.getEventDescription());
+            builder.addField(new MessageEmbed.Field(e.getEventName(), description, false));
+        }
+
+        embeds.add(builder.build());
+
+        builder = new EmbedBuilder();
+        builder.setTitle("HackForums Events");
+        builder.setDescription("List of upcoming events");
+
+        this.events = events.stream().sorted(Comparator.comparingLong(Event::getTimestamp)).collect(Collectors.toList());
+
+        for (Event e : this.events) {
+            String description = String.format("Leader: <@!%s>\nTime: <t:%d:R>\nDescription: %s", e.getLeader(), e.getTimestamp(), e.getEventDescription());
+            if(e.running) {
+                continue;
+            }
+            builder.addField(new MessageEmbed.Field(e.getEventName(), description, false));
+        }
+
+        embeds.add(builder.build());
+
+        return embeds;
+    }
+
+    private void updateEventEmbed() {
+        embed.editMessageEmbeds(generateEmbeds()).queue();
     }
 }
